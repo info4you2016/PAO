@@ -1,0 +1,88 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Default deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- Helpers ---
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isEmailVerified() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && (
+        request.auth.token.email == "info4you2013@gmail.com" ||
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('role', 'user') == 'admin')
+      );
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128;
+    }
+
+    // --- Presentations ---
+    match /presentations/{presentationId} {
+      function isValidPresentation(data) {
+        return data.keys().hasAll(['title', 'ownerId', 'createdAt']) &&
+               data.title is string && data.title.size() <= 500 &&
+               data.ownerId == request.auth.uid;
+      }
+
+      // Secure List & Get
+      allow get: if isSignedIn() && (existing().ownerId == request.auth.uid || isAdmin());
+      
+      // Allow listing if the query is filtered by ownerId
+      allow list: if isSignedIn() && (
+        (resource.data.ownerId == request.auth.uid) || isAdmin()
+      );
+      
+      // Strict Creation
+      allow create: if isSignedIn() && isValidId(presentationId) && isValidPresentation(incoming());
+      
+      // Tiered Update
+      allow update: if isSignedIn() && (
+        isAdmin() || 
+        (existing().ownerId == request.auth.uid && 
+         incoming().ownerId == existing().ownerId &&
+         incoming().diff(existing()).affectedKeys().hasOnly(['title', 'description', 'updatedAt', 'slidesOrder', 'course']))
+      );
+      
+      allow delete: if isSignedIn() && (existing().ownerId == request.auth.uid || isAdmin());
+
+      // --- Slides ---
+      match /slides/{slideId} {
+        function canAccessParent() {
+          // Use exists() before get() for safety
+          let parentPath = /databases/$(database)/documents/presentations/$(presentationId);
+          return exists(parentPath) && (get(parentPath).data.ownerId == request.auth.uid || isAdmin());
+        }
+
+        allow read: if isSignedIn() && canAccessParent();
+        allow create: if isSignedIn() && canAccessParent();
+        allow update: if isSignedIn() && canAccessParent();
+        allow delete: if isSignedIn() && canAccessParent();
+      }
+    }
+
+    // --- Users ---
+    match /users/{userId} {
+      allow read: if isSignedIn() && (request.auth.uid == userId || isAdmin());
+      allow write: if isAdmin() || (isSignedIn() && request.auth.uid == userId && !incoming().keys().hasAny(['role']));
+    }
+  }
+}

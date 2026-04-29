@@ -41,6 +41,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ presentationId, onUpdate
   const [slides, setSlides] = useState<SlideData[]>([]);
   const [editingSlide, setEditingSlide] = useState<SlideData | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [isCheckingAdmin, setIsCheckingAdmin] = useState(true);
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [loginError, setLoginError] = useState<string | null>(null);
   const [isGeneratingImage, setIsGeneratingImage] = useState(false);
@@ -64,21 +65,30 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ presentationId, onUpdate
     const unsubscribe = onAuthStateChanged(auth, async (u) => {
       setUser(u);
       if (u) {
+        setIsCheckingAdmin(true);
         // Check if user is admin
         try {
           const userDoc = await getDoc(doc(db, 'users', u.uid));
-          if (userDoc.exists() && userDoc.data().role === 'admin') {
-            setIsAdmin(true);
-          } else if (u.email === "info4you2013@gmail.com") {
+          const userData = userDoc.data();
+          if (u.email === "info4you2013@gmail.com" || (userDoc.exists() && userData?.role === 'admin')) {
             setIsAdmin(true);
           } else {
             setIsAdmin(false);
           }
         } catch (error) {
           console.error("Error checking admin status", error);
+          // Fallback to email check if Firestore read fails (e.g. during profile sync)
+          if (u.email === "info4you2013@gmail.com") {
+            setIsAdmin(true);
+          } else {
+            setIsAdmin(false);
+          }
+        } finally {
+          setIsCheckingAdmin(false);
         }
       } else {
         setIsAdmin(false);
+        setIsCheckingAdmin(false);
       }
     });
     return () => unsubscribe();
@@ -104,7 +114,9 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ presentationId, onUpdate
       const slidesData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as SlideData));
       setSlides(slidesData);
     }, (error) => {
-      handleFirestoreError(error, OperationType.LIST, 'slides');
+      if (auth.currentUser) {
+        handleFirestoreError(error, OperationType.LIST, 'slides');
+      }
     });
 
     return () => {
@@ -265,10 +277,40 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ presentationId, onUpdate
     );
   }
 
-  if (!isAdmin) {
+  if (isCheckingAdmin) {
     return (
-      <div className="p-8 text-center text-red-600 font-bold">
-        Accès refusé. Vous n'êtes pas administrateur.
+      <div className="min-h-[60vh] flex items-center justify-center p-4">
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-12 h-12 border-4 border-brand-primary border-t-transparent rounded-full animate-spin" />
+          <p className="text-slate-500 font-medium">Vérification des accès...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!isAdmin && user) {
+    return (
+      <div className="min-h-[60vh] flex items-center justify-center p-4">
+        <motion.div 
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="max-w-md w-full bg-white rounded-3xl shadow-xl p-10 text-center border border-red-100"
+        >
+          <div className="w-16 h-16 bg-red-50 text-red-600 rounded-2xl flex items-center justify-center mx-auto mb-6">
+            <AlertTriangle className="w-8 h-8" />
+          </div>
+          <h2 className="text-2xl font-bold text-slate-900 mb-2">Accès restreint</h2>
+          <p className="text-slate-500 mb-8">
+            Désolé, votre compte (<b>{user.email}</b>) n'a pas les droits d'administration nécessaires.
+          </p>
+          <button 
+            onClick={logout}
+            className="w-full py-4 bg-slate-900 text-white rounded-xl font-bold hover:bg-slate-800 transition-all flex items-center justify-center gap-2"
+          >
+            <LogOut className="w-5 h-5" />
+            Se déconnecter
+          </button>
+        </motion.div>
       </div>
     );
   }

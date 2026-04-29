@@ -248,7 +248,9 @@ export default function App() {
         setIsLoading(false);
       }
     }, (error) => {
-      handleFirestoreError(error, OperationType.LIST, 'slides');
+      if (auth.currentUser) {
+        handleFirestoreError(error, OperationType.LIST, 'slides');
+      }
       setIsLoading(false);
     });
 

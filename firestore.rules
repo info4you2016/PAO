@@ -46,10 +46,9 @@ service cloud.firestore {
       // Secure List & Get
       allow get: if isSignedIn() && (existing().ownerId == request.auth.uid || isAdmin());
       
-      // Allow listing if the query is filtered by ownerId
-      allow list: if isSignedIn() && (
-        (resource.data.ownerId == request.auth.uid) || isAdmin()
-      );
+      // Allow listing if the query is filtered by ownerId OR if the user is an admin
+      allow list: if isSignedIn() && resource.data.ownerId == request.auth.uid;
+      allow list: if isAdmin();
       
       // Strict Creation
       allow create: if isSignedIn() && isValidId(presentationId) && isValidPresentation(incoming());
@@ -82,7 +81,11 @@ service cloud.firestore {
     // --- Users ---
     match /users/{userId} {
       allow read: if isSignedIn() && (request.auth.uid == userId || isAdmin());
-      allow write: if isAdmin() || (isSignedIn() && request.auth.uid == userId && !incoming().keys().hasAny(['role']));
+      allow create: if isSignedIn() && request.auth.uid == userId && 
+                    (incoming().get('role', 'user') == 'user');
+      allow update: if isAdmin() || (isSignedIn() && request.auth.uid == userId && 
+                    incoming().role == existing().role);
+      allow delete: if isAdmin();
     }
   }
 }

@@ -46,7 +46,15 @@ export const Dashboard: React.FC<DashboardProps> = ({ onSelectPresentation }) =>
     : presentations;
 
   useEffect(() => {
+    let unsubSnapshot: (() => void) | null = null;
+
     const unsubscribe = auth.onAuthStateChanged((user) => {
+      // Clean up existing listener if any
+      if (unsubSnapshot) {
+        unsubSnapshot();
+        unsubSnapshot = null;
+      }
+
       if (!user) {
         setPresentations([]);
         return;
@@ -59,18 +67,23 @@ export const Dashboard: React.FC<DashboardProps> = ({ onSelectPresentation }) =>
         orderBy('createdAt', 'desc')
       );
 
-      const unsubSnapshot = onSnapshot(q, (snapshot) => {
+      unsubSnapshot = onSnapshot(q, (snapshot) => {
         const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as PresentationData));
         setPresentations(data);
       }, (err) => {
-        console.error("Firestore error in Dashboard:", err);
-        handleFirestoreError(err, OperationType.LIST, 'presentations');
+        // Only handle and report error if we are still supposedly logged in
+        // (Avoids reporting "Missing permissions" immediately after logout)
+        if (auth.currentUser) {
+          console.error("Firestore error in Dashboard:", err);
+          handleFirestoreError(err, OperationType.LIST, 'presentations');
+        }
       });
-
-      return () => unsubSnapshot();
     });
 
-    return () => unsubscribe();
+    return () => {
+      unsubscribe();
+      if (unsubSnapshot) unsubSnapshot();
+    };
   }, []);
 
   const handleExport = async (presentation: PresentationData, e: React.MouseEvent) => {

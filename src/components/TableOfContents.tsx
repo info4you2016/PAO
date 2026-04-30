@@ -58,7 +58,7 @@ export const TableOfContents: React.FC<TableOfContentsProps> = ({
               </button>
             </div>
 
-            <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-2">
+            <div className="flex-1 overflow-y-auto p-4 sm:p-8 space-y-3">
               {slides.map((slide, index) => {
                 const isActive = currentSlide === index;
                 const isViewed = index <= currentSlide;
@@ -74,33 +74,40 @@ export const TableOfContents: React.FC<TableOfContentsProps> = ({
                       onClose();
                     }}
                     className={cn(
-                      "w-full flex items-start gap-4 p-4 rounded-2xl transition-all text-left group",
+                      "w-full flex items-start gap-4 p-5 rounded-2xl transition-all text-left group",
                       isActive 
-                        ? "bg-brand-primary/10 border-brand-primary shadow-sm" 
+                        ? "bg-slate-900 shadow-xl shadow-slate-900/20" 
                         : "hover:bg-slate-50 border-transparent border"
                     )}
                   >
                     <div className={cn(
-                      "mt-1 flex-shrink-0 transition-colors",
-                      isActive ? "text-brand-primary" : (isViewed ? "text-slate-400" : "text-slate-200")
+                      "mt-1.5 flex-shrink-0 transition-colors",
+                      isActive ? "text-brand-accent" : (isViewed ? "text-slate-400" : "text-slate-200")
                     )}>
-                      {isViewed ? <CheckCircle2 className="w-5 h-5" /> : <Circle className="w-5 h-5" />}
+                      {isViewed ? <CheckCircle2 className="w-5 h-5 flex-shrink-0" /> : <Circle className="w-5 h-5 flex-shrink-0" />}
                     </div>
 
-                    <div className="flex-1">
+                    <div className="flex-1 min-w-0">
                       <div className={cn(
-                        "text-sm font-mono mb-1",
-                        isActive ? "text-brand-primary" : "text-slate-400"
+                        "text-[10px] font-bold uppercase tracking-widest mb-1 font-mono",
+                        isActive ? "text-slate-400" : "text-slate-400"
                       )}>
-                        D.{String(index + 1).padStart(2, '0')}
+                        Slide {String(index + 1).padStart(2, '0')}
                       </div>
                       <h4 className={cn(
-                        "font-bold leading-tight group-hover:text-brand-primary transition-colors",
-                        isActive ? "text-slate-900" : "text-slate-600"
+                        "font-display font-bold leading-tight transition-colors truncate",
+                        isActive ? "text-white" : "text-slate-700 group-hover:text-slate-900"
                       )}>
                         {slide.title}
                       </h4>
                     </div>
+                    
+                    {isActive && (
+                      <motion.div 
+                        layoutId="active-indicator"
+                        className="w-1.5 h-1.5 rounded-full bg-brand-accent mt-2"
+                      />
+                    )}
                   </motion.button>
                 );
               })}

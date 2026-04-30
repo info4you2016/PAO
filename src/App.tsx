@@ -1,23 +1,11 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { db, auth, OperationType, handleFirestoreError } from './firebase';
-import { collection, onSnapshot, query, orderBy, getDoc, doc, setDoc, serverTimestamp } from 'firebase/firestore';
-import { onAuthStateChanged, signOut } from 'firebase/auth';
+import { Login } from './components/Login';
+import { api } from './lib/api';
 import { 
   ChevronLeft, 
   ChevronRight, 
-  Play, 
-  Code2, 
-  AlertTriangle, 
-  CheckCircle2, 
-  Lightbulb, 
-  BookOpen, 
-  Clock, 
-  User,
   Layers,
-  Star,
-  HelpCircle,
-  Zap,
   Download,
   Settings,
   X,
@@ -28,13 +16,10 @@ import { cn } from './lib/utils';
 import { toPng } from 'html-to-image';
 import { AdminPanel } from './components/AdminPanel';
 import { ErrorBoundary } from './components/ErrorBoundary';
-import { INITIAL_SLIDES } from './constants';
 import { Dashboard } from './components/Dashboard';
 import { TableOfContents } from './components/TableOfContents';
 import { CodePlayground } from './components/CodePlayground';
 import { exportPresentationToPPTX } from './services/exportService';
-
-// --- Types ---
 
 interface SlideData {
   id?: string;
@@ -52,7 +37,7 @@ interface PresentationData {
   title: string;
   description?: string;
   course?: string;
-  ownerId: string;
+  owner_id: string;
 }
 
 // --- Components ---
@@ -133,32 +118,35 @@ const Slide = ({ slide, index, total, direction }: { slide: SlideData; index: nu
       </div>
 
       <div className={cn(
-        "relative z-10 flex-1 flex flex-col justify-center w-full max-w-4xl",
+        "relative z-10 flex-1 flex flex-col justify-center w-full max-w-5xl transition-all duration-500",
         slide.image || slide.isPlayground ? "text-left" : "text-center items-center"
       )}>
-        <motion.span 
+        <motion.div 
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1 }}
-          className="text-brand-primary font-display font-semibold tracking-wider uppercase text-xs sm:text-sm mb-2 md:mb-4"
+          className="flex items-center gap-3 mb-6 sm:mb-8"
         >
-          Diapositive {index + 1} / {total}
-        </motion.span>
+          <div className="h-px w-8 sm:w-12 bg-slate-200" />
+          <span className="text-slate-400 font-display font-bold tracking-[0.2em] uppercase text-[10px] sm:text-xs">
+            Section {index + 1}
+          </span>
+        </motion.div>
         
         <motion.h1 
-          initial={{ opacity: 0, filter: "blur(4px)" }}
-          animate={{ opacity: 1, filter: "blur(0px)" }}
-          transition={{ delay: 0.2, duration: 0.4 }}
-          className="text-2xl sm:text-3xl md:text-5xl lg:text-6xl font-display font-bold text-slate-900 mb-4 md:mb-8 leading-tight"
+          initial={{ opacity: 0, scale: 0.98, y: 10 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          transition={{ delay: 0.2, duration: 0.5 }}
+          className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-display font-bold text-slate-900 mb-6 md:mb-10 leading-[1.1] tracking-tight"
         >
           {slide.title}
         </motion.h1>
 
         <motion.div 
-          initial={{ opacity: 0, y: 10 }}
+          initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.3 }}
-          className="text-sm sm:text-base md:text-lg text-slate-700 leading-relaxed w-full presentation-rich-content"
+          className="text-lg sm:text-xl md:text-2xl text-slate-600 leading-relaxed font-sans font-normal presentation-rich-content w-full"
         >
           {renderContent()}
         </motion.div>
@@ -201,32 +189,40 @@ export default function App() {
   const exportRef = React.useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (u) => {
-      setUser(u);
-      if (u) {
-        // Sync user profile
-        try {
-          const userDoc = doc(db, 'users', u.uid);
-          const snap = await getDoc(userDoc);
-          if (!snap.exists()) {
-            await setDoc(userDoc, {
-              email: u.email,
-              displayName: u.displayName,
-              photoURL: u.photoURL,
-              role: 'user',
-              createdAt: serverTimestamp()
-            });
-          }
-        } catch (error) {
-          console.error("Error syncing user profile:", error);
-        }
-      } else {
-        setSelectedPresentation(null);
-        setIsAdminOpen(false);
-      }
-    });
-    return () => unsubscribe();
+    const savedUser = localStorage.getItem('user');
+    if (savedUser) {
+      setUser(JSON.parse(savedUser));
+    }
+    setIsLoading(false);
   }, []);
+
+  const handleLogout = () => {
+    localStorage.removeItem('user');
+    setUser(null);
+    setSelectedPresentation(null);
+    setIsAdminOpen(false);
+  };
+
+  const loadSlides = async (presentationId: string) => {
+    try {
+      setIsLoading(true);
+      const slidesData = await api.presentations.getSlides(presentationId);
+      setSlides(slidesData.map((s: any) => ({
+        id: s.id,
+        title: s.title,
+        content: s.content,
+        image: s.image_url,
+        bgColor: s.bg_color,
+        order: s.slide_order,
+        isPlayground: Boolean(s.is_playground),
+        initialCode: s.initial_code
+      })));
+    } catch (error) {
+      console.error("Error loading slides:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   useEffect(() => {
     if (!selectedPresentation) {
@@ -235,26 +231,7 @@ export default function App() {
       return;
     }
 
-    setIsLoading(true);
-    const q = query(collection(db, 'presentations', selectedPresentation.id, 'slides'), orderBy('order', 'asc'));
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      if (snapshot.empty && selectedPresentation.ownerId === user?.uid) {
-        // We don't auto-seed anymore, let the user do it in admin panel
-        setSlides([]);
-        setIsLoading(false);
-      } else {
-        const slidesData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as SlideData));
-        setSlides(slidesData);
-        setIsLoading(false);
-      }
-    }, (error) => {
-      if (auth.currentUser) {
-        handleFirestoreError(error, OperationType.LIST, 'slides');
-      }
-      setIsLoading(false);
-    });
-
-    return () => unsubscribe();
+    loadSlides(selectedPresentation.id);
   }, [selectedPresentation, user]);
 
   useEffect(() => {
@@ -288,12 +265,13 @@ export default function App() {
     if (isExporting && exportIndex >= 0 && exportIndex < slides.length && exportRef.current) {
       const capture = async () => {
         try {
-          await new Promise(r => setTimeout(r, 600)); // Un peu plus de temps pour App.tsx
+          await new Promise(r => setTimeout(r, 800)); // Un peu plus de temps pour App.tsx
           if (!exportRef.current) return;
           const dataUrl = await toPng(exportRef.current, {
             width: 1280,
             height: 720,
             cacheBust: true,
+            skipFonts: true,
           });
           setSnapshots(prev => [...prev, dataUrl]);
           setExportIndex(prev => prev + 1);
@@ -326,96 +304,73 @@ export default function App() {
         <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none opacity-20">
           <div className="absolute -top-24 -left-24 w-96 h-96 bg-brand-primary rounded-full blur-3xl" />
           <div className="absolute top-1/2 -right-24 w-64 h-64 bg-brand-secondary rounded-full blur-3xl" />
-        </div>
-
-        {/* Header / Progress */}
-        <div className="relative z-10 w-full p-4 sm:p-6 flex items-center justify-between">
+        </div>        {/* Header / Progress */}
+        <div className="relative z-20 w-full px-6 py-4 flex items-center justify-between bg-white/40 backdrop-blur-md border-b border-slate-100">
           <div 
-            className="flex items-center gap-2 sm:gap-3 cursor-pointer group" 
+            className="flex items-center gap-4 cursor-pointer group" 
             onClick={() => { setSelectedPresentation(null); setIsAdminOpen(false); }}
-            title="Retour au tableau de bord"
           >
-            <div className="p-1.5 sm:p-2 bg-slate-900 text-white rounded-lg sm:rounded-xl group-hover:bg-brand-primary transition-colors">
-              <Layers className="w-5 h-5 sm:w-6 sm:h-6" />
+            <div className="w-10 h-10 bg-slate-900 text-white rounded-xl flex items-center justify-center group-hover:bg-brand-accent transition-all shadow-lg shadow-slate-900/10 active:scale-95">
+              <Layers className="w-5 h-5" />
             </div>
-            <div>
-              <h2 className="font-display font-bold text-slate-900 text-sm sm:text-base group-hover:text-brand-primary transition-colors">
-                {selectedPresentation ? selectedPresentation.title : "Mes Présentations"}
+            <div className="hidden sm:block">
+              <h2 className="font-display font-bold text-slate-900 text-lg tracking-tight group-hover:text-brand-accent transition-colors leading-none mb-1">
+                {selectedPresentation ? selectedPresentation.title : "Plateforme Pédagogique"}
               </h2>
-              <p className="text-[10px] sm:text-xs text-slate-500 font-medium uppercase tracking-widest">
-                {selectedPresentation ? "Mode Présentation" : "Tableau de Bord"}
-              </p>
+              <div className="flex items-center gap-2">
+                <div className="w-1.5 h-1.5 rounded-full bg-brand-accent animate-pulse" />
+                <span className="text-[10px] text-slate-400 font-bold uppercase tracking-[0.2em]">
+                  {selectedPresentation ? "Mode Présentation" : "Tableau de Bord"}
+                </span>
+              </div>
             </div>
           </div>
           
-          <div className="flex items-center gap-2 sm:gap-4">
+          <div className="flex items-center gap-3">
             {selectedPresentation && (
-              <>
+              <div className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-50 border border-slate-100 rounded-lg">
                 <button 
                   onClick={() => setIsTOCOpen(true)}
-                  className="p-2 rounded-lg bg-white border border-slate-200 text-slate-600 hover:text-brand-primary hover:border-brand-primary transition-all shadow-sm active:scale-95"
+                  className="p-1.5 text-slate-400 hover:text-slate-900 transition-all"
                   title="Sommaire"
                 >
-                  <List className="w-5 h-5" />
+                  <List className="w-4 h-4" />
                 </button>
-
+                <div className="w-px h-4 bg-slate-200" />
                 <button 
                   onClick={() => setIsAdminOpen(!isAdminOpen)}
                   className={cn(
-                    "p-2 rounded-lg transition-all active:scale-95",
-                    isAdminOpen ? "bg-brand-primary text-white" : "bg-white border border-slate-200 text-slate-600 hover:text-brand-primary"
+                    "p-1.5 rounded-md transition-all",
+                    isAdminOpen ? "bg-slate-900 text-white" : "text-slate-400 hover:text-slate-900"
                   )}
-                  title={isAdminOpen ? "Fermer l'administration" : "Paramètres de la présentation"}
+                  title="Paramètres"
                 >
-                  {isAdminOpen ? <X className="w-5 h-5" /> : <Settings className="w-5 h-5" />}
+                  <Settings className="w-4 h-4" />
                 </button>
-
-                <button 
-                  onClick={() => { setSelectedPresentation(null); setIsAdminOpen(false); }}
-                  className="p-2 rounded-lg bg-white border border-red-100 text-red-500 hover:bg-red-50 hover:text-red-600 transition-all shadow-sm active:scale-95 group"
-                  title="Quitter la présentation"
-                >
-                  <LogOut className="w-5 h-5 group-hover:-translate-x-0.5 transition-transform" />
-                </button>
-
+                <div className="w-px h-4 bg-slate-200" />
                 <button 
                   onClick={exportToPPTX}
-                  className="hidden sm:flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 rounded-lg text-slate-600 hover:text-brand-primary hover:border-brand-primary transition-all text-sm font-medium shadow-sm active:scale-95"
+                  className="p-1.5 text-slate-400 hover:text-slate-900 transition-all"
+                  title="Exporter"
                 >
                   <Download className="w-4 h-4" />
-                  <span>PPTX</span>
                 </button>
-
-                <div className="hidden sm:flex h-1.5 w-32 md:w-48 bg-slate-200 rounded-full overflow-hidden">
-                  <motion.div 
-                    className="h-full bg-brand-primary"
-                    initial={{ width: 0 }}
-                    animate={{ width: slides.length > 0 ? `${((currentSlide + 1) / slides.length) * 100}%` : 0 }}
-                  />
+              </div>
+            )}
+            
+            {user && (
+              <div className="flex items-center gap-3 pl-3 border-l border-slate-100">
+                <div className="w-8 h-8 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-600 font-bold text-xs">
+                  {user.name ? user.name[0].toUpperCase() : user.email[0].toUpperCase()}
                 </div>
-                <span className="text-[10px] sm:text-sm font-mono font-bold text-slate-400">
-                  {slides.length > 0 ? String(currentSlide + 1).padStart(2, '0') : '00'} / {slides.length}
-                </span>
-              </>
-            )}
-            
-            {!user && (
-              <button 
-                onClick={() => setIsAdminOpen(true)}
-                className="px-4 py-2 bg-slate-900 text-white rounded-lg text-sm font-bold hover:bg-slate-800 transition-all"
-              >
-                Connexion
-              </button>
-            )}
-            
-            {user && !selectedPresentation && (
-              <button 
-                onClick={() => signOut(auth)}
-                className="p-2 text-slate-400 hover:text-red-600 transition-all"
-                title="Déconnexion"
-              >
-                <LogOut className="w-5 h-5" />
-              </button>
+                <button 
+                  onClick={handleLogout}
+                  className="p-2 text-slate-400 hover:text-red-500 transition-all"
+                  title="Déconnexion"
+                >
+                  <LogOut className="w-5 h-5" />
+                </button>
+              </div>
             )}
           </div>
         </div>
@@ -429,13 +384,15 @@ export default function App() {
             </div>
           ) : !user ? (
             <div className="w-full h-full overflow-y-auto">
-              <AdminPanel />
+              <Login onLogin={setUser} />
             </div>
           ) : !selectedPresentation ? (
-            <Dashboard onSelectPresentation={setSelectedPresentation} />
+            <Dashboard user={user} onSelectPresentation={setSelectedPresentation} />
           ) : isAdminOpen ? (
             <div className="w-full h-full overflow-y-auto bg-white/50 backdrop-blur-md">
               <AdminPanel 
+                user={user}
+                onLogout={handleLogout}
                 presentationId={selectedPresentation.id} 
                 onUpdatePresentation={(updatedData) => setSelectedPresentation(prev => prev ? ({ ...prev, ...updatedData }) : null)}
               />
@@ -509,7 +466,7 @@ export default function App() {
 
                 <div className="text-2xl text-slate-700 leading-relaxed">
                   {slides[exportIndex].isPlayground ? (
-                   <div className="p-8 bg-slate-800 rounded-3xl border border-slate-700 shadow-2xl w-full">
+                   <div className="p-8 bg-slate-50 rounded-3xl border border-slate-200 shadow-2xl w-full">
                       <div className="flex items-center justify-between mb-4">
                         <div className="flex gap-1.5">
                           <div className="w-3 h-3 rounded-full bg-red-400" />
@@ -517,7 +474,7 @@ export default function App() {
                           <div className="w-3 h-3 rounded-full bg-green-400" />
                         </div>
                       </div>
-                      <pre className="text-sm font-mono text-blue-300 leading-relaxed overflow-hidden">
+                      <pre className="text-sm font-mono text-slate-700 leading-relaxed overflow-hidden">
                         <code>{slides[exportIndex].initialCode}</code>
                       </pre>
                     </div>

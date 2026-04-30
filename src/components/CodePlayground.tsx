@@ -1,7 +1,14 @@
 import React, { useState, useEffect, useRef } from 'react';
-import Editor from '@monaco-editor/react';
+import Editor, { loader } from '@monaco-editor/react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Play, RotateCcw, Terminal, AlertCircle, CheckCircle2 } from 'lucide-react';
+
+// Configure Monaco loader to minimize cross-origin issues inside iframes
+loader.config({
+  paths: {
+    vs: 'https://cdn.jsdelivr.net/npm/monaco-editor@0.43.0/min/vs'
+  }
+});
+import { Play, RotateCcw, Terminal, AlertCircle, CheckCircle2, Sun, Moon } from 'lucide-react';
 import { cn } from '../lib/utils';
 
 interface CodePlaygroundProps {
@@ -20,6 +27,7 @@ export const CodePlayground: React.FC<CodePlaygroundProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [isRunning, setIsRunning] = useState(false);
   const [executionTime, setExecutionTime] = useState<number | null>(null);
+  const [theme, setTheme] = useState<'vs-dark' | 'vs-light'>('vs-light');
 
   const runCode = () => {
     setIsRunning(true);
@@ -93,6 +101,13 @@ export const CodePlayground: React.FC<CodePlaygroundProps> = ({
         </div>
         <div className="flex items-center gap-2">
           <button
+            onClick={() => setTheme(theme === 'vs-light' ? 'vs-dark' : 'vs-light')}
+            className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-all"
+            title={theme === 'vs-light' ? "Passer au thème sombre" : "Passer au thème clair"}
+          >
+            {theme === 'vs-light' ? <Moon className="w-5 h-5" /> : <Sun className="w-5 h-5" />}
+          </button>
+          <button
             onClick={resetCode}
             className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-all"
             title="Réinitialiser"
@@ -123,10 +138,11 @@ export const CodePlayground: React.FC<CodePlaygroundProps> = ({
         <div className="flex-1 border-b md:border-b-0 md:border-r border-slate-100 h-1/2 md:h-auto overflow-hidden">
           <Editor
             height="100%"
-            defaultLanguage="javascript"
+            language="javascript"
             value={code}
             onChange={(value) => setCode(value || '')}
-            theme="vs-light"
+            theme={theme}
+            loading={<div className="flex items-center justify-center h-full text-slate-400 font-mono text-xs">Chargement de l'éditeur...</div>}
             onMount={(editor, monaco) => {
               // Register loop snippets for auto-completion
               monaco.languages.registerCompletionItemProvider('javascript', {
@@ -194,12 +210,12 @@ export const CodePlayground: React.FC<CodePlaygroundProps> = ({
         </div>
 
         {/* Output Area */}
-        <div className="w-full md:w-[350px] lg:w-[400px] flex flex-col bg-slate-800 h-1/2 md:h-auto overflow-hidden">
-          <div className="flex items-center gap-2 px-4 py-3 border-b border-white/5 bg-white/5">
-            <Terminal className="w-4 h-4 text-slate-400" />
-            <span className="text-xs font-mono font-bold text-slate-400 uppercase tracking-widest">Console</span>
+        <div className="w-full md:w-[350px] lg:w-[400px] flex flex-col bg-slate-50 h-1/2 md:h-auto overflow-hidden">
+          <div className="flex items-center gap-2 px-4 py-3 border-b border-slate-200 bg-slate-100/50">
+            <Terminal className="w-4 h-4 text-slate-500" />
+            <span className="text-xs font-mono font-bold text-slate-500 uppercase tracking-widest">Console</span>
             {executionTime && (
-              <span className="ml-auto text-[10px] font-mono text-slate-500">
+              <span className="ml-auto text-[10px] font-mono text-slate-400">
                 {executionTime.toFixed(2)}ms
               </span>
             )}
@@ -211,7 +227,7 @@ export const CodePlayground: React.FC<CodePlaygroundProps> = ({
                 <motion.div
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
-                  className="flex items-start gap-2 text-red-400 p-3 bg-red-400/10 rounded-xl"
+                  className="flex items-start gap-2 text-red-600 p-3 bg-red-50 border border-red-100 rounded-xl"
                 >
                   <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5" />
                   <p>{error}</p>
@@ -224,15 +240,15 @@ export const CodePlayground: React.FC<CodePlaygroundProps> = ({
                       initial={{ opacity: 0, x: -5 }}
                       animate={{ opacity: 1, x: 0 }}
                       transition={{ delay: i * 0.05 }}
-                      className="text-slate-300 flex items-start gap-3 whitespace-pre-wrap"
+                      className="text-slate-700 flex items-start gap-3 whitespace-pre-wrap"
                     >
-                      <span className="text-slate-600 select-none">{i + 1}</span>
+                      <span className="text-slate-400 select-none w-4 text-right">{i + 1}</span>
                       <span>{line}</span>
                     </motion.div>
                   ))}
                 </div>
               ) : (
-                <div className="h-full flex flex-col items-center justify-center text-slate-600 opacity-50">
+                <div className="h-full flex flex-col items-center justify-center text-slate-400 opacity-50">
                   <Play className="w-8 h-8 mb-2" />
                   <p>Appuyez sur "Exécuter" pour voir le résultat</p>
                 </div>
@@ -240,14 +256,14 @@ export const CodePlayground: React.FC<CodePlaygroundProps> = ({
             </AnimatePresence>
           </div>
           
-          <div className="px-4 py-2 border-t border-white/5 bg-white/5 flex items-center justify-between">
+          <div className="px-4 py-2 border-t border-slate-200 bg-slate-100/50 flex items-center justify-between">
             <div className="flex gap-1.5">
-              <div className="w-2.5 h-2.5 rounded-full bg-red-500/50" />
-              <div className="w-2.5 h-2.5 rounded-full bg-yellow-500/50" />
-              <div className="w-2.5 h-2.5 rounded-full bg-green-500/50" />
+              <div className="w-2.5 h-2.5 rounded-full bg-red-400" />
+              <div className="w-2.5 h-2.5 rounded-full bg-yellow-400" />
+              <div className="w-2.5 h-2.5 rounded-full bg-green-400" />
             </div>
             {!error && output.length > 0 && (
-              <span className="text-[10px] text-green-400 font-bold flex items-center gap-1">
+              <span className="text-[10px] text-green-600 font-bold flex items-center gap-1">
                 <CheckCircle2 className="w-3 h-3" />
                 EXEC_SUCCESS
               </span>

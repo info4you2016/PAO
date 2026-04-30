@@ -2,28 +2,28 @@ import React, { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
 import ReactQuill from 'react-quill-new';
 import 'react-quill-new/dist/quill.snow.css';
-import { db, auth, OperationType, handleFirestoreError } from '../firebase';
-import { collection, onSnapshot, query, orderBy, addDoc, deleteDoc, doc, serverTimestamp, where, writeBatch, getDocs } from 'firebase/firestore';
-import { Plus, Trash2, Play, BookOpen, Clock, Layers, X, Sparkles, MessageSquare, Wand2, Download, Loader2 } from 'lucide-react';
+import { Plus, Trash2, Play, BookOpen, Clock, Layers, X, Sparkles, MessageSquare, Wand2, Download, Loader2, AlertCircle } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { generatePresentationFromText } from '../services/aiService';
 import { toPng } from 'html-to-image';
 import { exportPresentationToPPTX } from '../services/exportService';
+import { api } from '../lib/api';
 
 interface PresentationData {
   id: string;
   title: string;
   description?: string;
   course?: string;
-  ownerId: string;
-  createdAt: any;
+  owner_id: string;
+  created_at: string;
 }
 
 interface DashboardProps {
+  user: any;
   onSelectPresentation: (presentation: PresentationData) => void;
 }
 
-export const Dashboard: React.FC<DashboardProps> = ({ onSelectPresentation }) => {
+export const Dashboard: React.FC<DashboardProps> = ({ user, onSelectPresentation }) => {
   const [presentations, setPresentations] = useState<PresentationData[]>([]);
   const [isCreating, setIsCreating] = useState(false);
   const [isAIGenerating, setIsAIGenerating] = useState(false);
@@ -38,6 +38,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onSelectPresentation }) =>
   const [selectedCourse, setSelectedCourse] = useState<string | null>(null);
   const [newPresentation, setNewPresentation] = useState({ title: '', description: '', course: '' });
   const [aiPrompt, setAiPrompt] = useState('');
+  const [isLoading, setIsLoading] = useState(true);
 
   const courses = Array.from(new Set(presentations.map(p => p.course || "Sans cours"))).sort();
 
@@ -45,46 +46,24 @@ export const Dashboard: React.FC<DashboardProps> = ({ onSelectPresentation }) =>
     ? presentations.filter(p => (p.course || "Sans cours") === selectedCourse)
     : presentations;
 
+  const loadPresentations = async (userId: string) => {
+    try {
+      setIsLoading(true);
+      const data = await api.presentations.getAll(userId);
+      setPresentations(data || []);
+    } catch (err: any) {
+      console.error("Error loading presentations:", err);
+      setError("Erreur lors du chargement des présentations.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   useEffect(() => {
-    let unsubSnapshot: (() => void) | null = null;
-
-    const unsubscribe = auth.onAuthStateChanged((user) => {
-      // Clean up existing listener if any
-      if (unsubSnapshot) {
-        unsubSnapshot();
-        unsubSnapshot = null;
-      }
-
-      if (!user) {
-        setPresentations([]);
-        return;
-      }
-
-      setError(null);
-      const q = query(
-        collection(db, 'presentations'), 
-        where('ownerId', '==', user.uid),
-        orderBy('createdAt', 'desc')
-      );
-
-      unsubSnapshot = onSnapshot(q, (snapshot) => {
-        const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as PresentationData));
-        setPresentations(data);
-      }, (err) => {
-        // Only handle and report error if we are still supposedly logged in
-        // (Avoids reporting "Missing permissions" immediately after logout)
-        if (auth.currentUser) {
-          console.error("Firestore error in Dashboard:", err);
-          handleFirestoreError(err, OperationType.LIST, 'presentations');
-        }
-      });
-    });
-
-    return () => {
-      unsubscribe();
-      if (unsubSnapshot) unsubSnapshot();
-    };
-  }, []);
+    if (user) {
+      loadPresentations(user.id);
+    }
+  }, [user]);
 
   const handleExport = async (presentation: PresentationData, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -94,53 +73,50 @@ export const Dashboard: React.FC<DashboardProps> = ({ onSelectPresentation }) =>
     setExportPresentation(presentation);
     setSnapshots([]);
     try {
-      const q = query(
-        collection(db, 'presentations', presentation.id, 'slides'), 
-        orderBy('order', 'asc')
-      );
-      const snapshot = await getDocs(q);
-      const slidesData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as any));
+      const slidesData = await api.presentations.getSlides(presentation.id);
       
-      if (slidesData.length === 0) {
+      if (!slidesData || slidesData.length === 0) {
         setIsExporting(null);
         return;
       }
 
-      setExportSlides(slidesData);
+      setExportSlides(slidesData.map((s: any) => ({
+        ...s,
+        image: s.image_url,
+        bgColor: s.bg_color,
+        order: s.slide_order,
+        isPlayground: Boolean(s.is_playground),
+        initialCode: s.initial_code
+      })));
       setExportIndex(0);
-    } catch (error) {
-      handleFirestoreError(error, OperationType.LIST, 'slides');
+    } catch (err: any) {
+      console.error("Export error:", err);
+      setError("Erreur lors de la préparation de l'exportation.");
       setIsExporting(null);
     }
   };
 
   useEffect(() => {
     if (exportIndex >= 0 && exportIndex < exportSlides.length && exportRef.current && isExporting) {
-      // Capture current slide
       const capture = async () => {
         try {
-          // Wait for content to render (images, etc)
           await new Promise(r => setTimeout(r, 500));
-          
           if (!exportRef.current) return;
-          
           const dataUrl = await toPng(exportRef.current, {
             width: 1280,
             height: 720,
             cacheBust: true,
           });
-          
           setSnapshots(prev => [...prev, dataUrl]);
           setExportIndex(prev => prev + 1);
         } catch (err) {
           console.error("Export capture error:", err);
-          setExportIndex(prev => prev + 1); // Skip and continue
+          setExportIndex(prev => prev + 1);
         }
       };
       capture();
     } else if (exportIndex >= exportSlides.length && exportSlides.length > 0 && exportPresentation) {
-      // Finished all slides
-      exportPresentationToPPTX(exportPresentation, exportSlides, snapshots);
+      exportPresentationToPPTX(exportPresentation as any, exportSlides, snapshots);
       setIsExporting(null);
       setExportIndex(-1);
       setExportSlides([]);
@@ -150,10 +126,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onSelectPresentation }) =>
 
   const createPresentation = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!auth.currentUser) {
-      setError("Vous devez être connecté pour créer une présentation.");
-      return;
-    }
+    if (!user) return;
 
     if (!newPresentation.title.trim()) {
       setError("Le titre est obligatoire.");
@@ -164,19 +137,20 @@ export const Dashboard: React.FC<DashboardProps> = ({ onSelectPresentation }) =>
     setError(null);
 
     try {
-      await addDoc(collection(db, 'presentations'), {
+      const id = crypto.randomUUID();
+      await api.presentations.create({
+        id,
         title: newPresentation.title.trim(),
         description: newPresentation.description.trim(),
         course: newPresentation.course.trim() || null,
-        ownerId: auth.currentUser.uid,
-        createdAt: serverTimestamp()
+        ownerId: user.id
       });
       setIsCreating(false);
       setNewPresentation({ title: '', description: '', course: '' });
+      loadPresentations(user.id);
     } catch (err: any) {
       console.error("Error creating presentation:", err);
-      setError("Erreur lors de la création : " + (err.message || "Inconnue"));
-      handleFirestoreError(err, OperationType.WRITE, 'presentations');
+      setError("Erreur lors de la création.");
     } finally {
       setIsSubmitting(false);
     }
@@ -184,10 +158,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onSelectPresentation }) =>
 
   const generateWithAI = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!auth.currentUser) {
-      setError("Vous devez être connecté.");
-      return;
-    }
+    if (!user) return;
 
     if (!aiPrompt.trim()) {
       setError("Veuillez saisir un sujet.");
@@ -199,30 +170,29 @@ export const Dashboard: React.FC<DashboardProps> = ({ onSelectPresentation }) =>
 
     try {
       const generated = await generatePresentationFromText(aiPrompt);
-      
-      const docRef = await addDoc(collection(db, 'presentations'), {
+      const presentationId = crypto.randomUUID();
+
+      await api.presentations.create({
+        id: presentationId,
         title: generated.title,
         description: generated.description,
-        ownerId: auth.currentUser.uid,
-        createdAt: serverTimestamp()
+        ownerId: user.id
       });
 
-      const batch = writeBatch(db);
-      generated.slides.forEach((slide: any, index: number) => {
-        const slideRef = doc(collection(db, `presentations/${docRef.id}/slides`));
-        batch.set(slideRef, {
-          ...slide,
-          order: index,
-          createdAt: serverTimestamp()
-        });
-      });
-      await batch.commit();
+      const slides = generated.slides.map((s: any, i: number) => ({
+        ...s,
+        id: crypto.randomUUID(),
+        order: i
+      }));
+
+      await api.presentations.batchAddSlides(presentationId, slides);
 
       setIsAIGenerating(false);
       setAiPrompt('');
+      loadPresentations(user.id);
     } catch (err: any) {
       console.error("AI Generation error:", err);
-      setError("Erreur IA : " + (err.message || "Échec de la génération"));
+      setError("Échec de la génération par l'IA.");
     } finally {
       setIsSubmitting(false);
     }
@@ -230,36 +200,39 @@ export const Dashboard: React.FC<DashboardProps> = ({ onSelectPresentation }) =>
 
   const deletePresentation = async (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    if (!window.confirm("Supprimer cette présentation et toutes ses diapositives ?")) return;
-    
+    if (!window.confirm("Supprimer cette présentation ?")) return;
+    if (!user) return;
+
     try {
-      await deleteDoc(doc(db, 'presentations', id));
-    } catch (error) {
-      handleFirestoreError(error, OperationType.DELETE, 'presentations');
+      await api.presentations.delete(id);
+      loadPresentations(user.id);
+    } catch (err) {
+      console.error("Delete error:", err);
+      setError("Erreur lors de la suppression.");
     }
   };
 
   return (
     <div className="max-w-6xl mx-auto p-4 sm:p-8 w-full h-full overflow-y-auto">
-      <div className="flex items-center justify-between mb-8">
+      <div className="flex flex-col md:flex-row md:items-end justify-between mb-12 gap-6">
         <div>
-          <h1 className="text-3xl font-bold text-slate-900">Tableau de Bord</h1>
-          <p className="text-slate-500">Gérez vos présentations dynamiques</p>
+          <h1 className="text-4xl sm:text-5xl font-display font-bold text-slate-900 tracking-tight mb-2">Vos Formations</h1>
+          <p className="text-slate-500 font-medium text-lg">Gérez vos supports pédagogiques interactifs</p>
         </div>
         <div className="flex items-center gap-3">
           <button 
             onClick={() => { setIsAIGenerating(true); setError(null); }}
-            className="flex items-center gap-2 px-6 py-3 bg-white border border-slate-200 text-slate-900 rounded-xl font-bold hover:bg-slate-50 transition-all shadow-sm hover:scale-105 active:scale-95"
+            className="flex items-center gap-2 px-5 py-3 bg-white border border-slate-200 text-slate-600 rounded-xl font-bold hover:bg-slate-50 transition-all shadow-sm active:scale-95 group"
           >
-            <Sparkles className="w-5 h-5 text-brand-primary" />
-            Générer avec l'IA
+            <Sparkles className="w-4 h-4 text-brand-accent group-hover:animate-pulse" />
+            <span className="text-sm">Générer avec l'IA</span>
           </button>
           <button 
             onClick={() => { setIsCreating(true); setError(null); }}
-            className="flex items-center gap-2 px-6 py-3 bg-slate-900 text-white rounded-xl font-bold hover:bg-slate-800 transition-all shadow-lg hover:scale-105 active:scale-95"
+            className="flex items-center gap-2 px-6 py-3 bg-slate-900 text-white rounded-xl font-bold hover:bg-slate-800 transition-all shadow-[0_8px_16px_rgba(15,23,42,0.15)] active:scale-95"
           >
             <Plus className="w-5 h-5" />
-            Nouvelle Présentation
+            <span className="text-sm">Nouveau Projet</span>
           </button>
         </div>
       </div>
@@ -310,41 +283,39 @@ export const Dashboard: React.FC<DashboardProps> = ({ onSelectPresentation }) =>
             animate={{ opacity: 1, y: 0 }}
             whileHover={{ y: -6 }}
             onClick={() => onSelectPresentation(p)}
-            className="bg-white rounded-3xl border border-slate-200 shadow-sm hover:shadow-2xl hover:shadow-brand-primary/5 transition-all cursor-pointer group overflow-hidden flex flex-col h-full"
+            className="card-minimal group cursor-pointer overflow-hidden flex flex-col h-full"
           >
             <div className="h-40 bg-slate-50 relative flex items-center justify-center overflow-hidden transition-colors duration-500">
-              <div className="absolute inset-0 opacity-20">
-                <div className="absolute top-0 left-0 w-full h-full bg-[radial-gradient(circle_at_50%_50%,#3b82f6_0%,transparent_70%)]" />
+              <div className="absolute inset-0 opacity-10">
+                <div className="absolute top-0 left-0 w-full h-full bg-[radial-gradient(circle_at_50%_40%,#3b82f6_0%,transparent_75%)]" />
               </div>
-              <Layers className="relative z-10 w-16 h-16 text-slate-200 group-hover:text-brand-primary group-hover:scale-110 transition-all duration-500" />
+              <Layers className="relative z-10 w-16 h-16 text-slate-300 group-hover:text-brand-accent group-hover:scale-110 transition-all duration-500" />
               <div className="absolute bottom-4 left-4">
-                <span className="px-2 py-1 bg-white/90 backdrop-blur-sm text-[10px] font-bold text-brand-primary rounded-lg uppercase tracking-tight shadow-sm">
+                <span className="px-3 py-1 bg-white/90 backdrop-blur-sm text-[10px] font-bold text-slate-600 rounded-lg uppercase tracking-wider shadow-sm border border-slate-100">
                   {p.course || "Sans cours"}
                 </span>
               </div>
             </div>
             <div className="p-8 flex-1 flex flex-col">
-              <h3 className="text-2xl font-display font-bold text-slate-900 mb-3 group-hover:text-brand-primary transition-colors">{p.title}</h3>
+              <h3 className="text-xl font-display font-bold text-slate-900 mb-2 truncate group-hover:text-brand-accent transition-colors">{p.title}</h3>
               {p.description ? (
                 <div 
-                  className="text-slate-500 text-sm mb-6 line-clamp-3 leading-relaxed presentation-rich-content prose prose-slate max-w-none"
+                  className="text-slate-500 text-sm mb-6 line-clamp-2 leading-relaxed presentation-rich-content prose prose-slate max-w-none"
                   dangerouslySetInnerHTML={{ __html: p.description }}
                 />
               ) : (
-                <p className="text-slate-500 text-sm mb-6 line-clamp-3 leading-relaxed italic">Aucune description fournie.</p>
+                <p className="text-slate-400 text-xs mb-6 line-clamp-2 italic">Aucune description.</p>
               )}
               
               <div className="mt-auto pt-6 border-t border-slate-50 flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                  <div className="flex items-center gap-1.5 text-slate-400 text-xs font-medium">
-                    <Clock className="w-3.5 h-3.5" />
-                    <span>{p.createdAt?.toDate().toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' }) || "Récent"}</span>
-                  </div>
+                <div className="flex items-center gap-1.5 text-slate-400 text-[10px] font-bold uppercase tracking-widest">
+                  <Clock className="w-3.5 h-3.5" />
+                  <span>{p.created_at ? new Date(p.created_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' }) : "Récent"}</span>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1">
                   <button 
                     onClick={(e) => handleExport(p, e)}
-                    className="p-3 text-slate-300 hover:text-brand-primary hover:bg-brand-primary/5 rounded-xl transition-all"
+                    className="p-2 text-slate-400 hover:text-brand-accent hover:bg-slate-50 rounded-lg transition-all"
                     title="Exporter en PPTX"
                     disabled={isExporting === p.id}
                   >
@@ -352,12 +323,12 @@ export const Dashboard: React.FC<DashboardProps> = ({ onSelectPresentation }) =>
                   </button>
                   <button 
                     onClick={(e) => deletePresentation(p.id, e)}
-                    className="p-3 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all"
+                    className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all"
                     title="Supprimer"
                   >
                     <Trash2 className="w-4 h-4" />
                   </button>
-                  <div className="p-3 bg-slate-900 text-white rounded-xl shadow-lg group-hover:bg-brand-primary transition-colors">
+                  <div className="ml-2 w-10 h-10 bg-slate-900 group-hover:bg-brand-accent text-white rounded-xl flex items-center justify-center shadow-sm transition-all group-hover:scale-105 active:scale-95">
                     <Play className="w-4 h-4" />
                   </div>
                 </div>

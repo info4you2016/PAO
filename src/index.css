@@ -6,23 +6,74 @@
   --font-display: "Outfit", sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
 
-  --color-brand-primary: #3b82f6;
-  --color-brand-secondary: #10b981;
-  --color-brand-accent: #f59e0b;
+  --color-brand-primary: #0f172a; /* Slate 900 */
+  --color-brand-secondary: #64748b; /* Slate 500 */
+  --color-brand-accent: #3b82f6; /* Blue 500 */
+  
+  --radius-xl: 1.5rem;
+  --radius-2xl: 2rem;
+  --radius-3xl: 2.5rem;
 }
 
 @layer base {
   body {
-    @apply font-sans text-slate-900 bg-slate-50 antialiased;
+    @apply font-sans text-slate-900 bg-[#f8fafc] antialiased selection:bg-slate-900 selection:text-white;
   }
 }
 
 .glass {
-  @apply bg-white/80 backdrop-blur-md border border-white/20 shadow-xl;
+  @apply bg-white/70 backdrop-blur-xl border border-white/40 shadow-[0_8px_32px_rgba(0,0,0,0.04)];
+}
+
+.card-minimal {
+  @apply bg-white border border-slate-100 rounded-3xl shadow-[0_2px_8px_rgba(0,0,0,0.02)] transition-all hover:shadow-[0_12px_24px_rgba(0,0,0,0.04)] hover:border-slate-200;
 }
 
 .code-block {
-  @apply font-mono text-sm bg-slate-800 text-slate-100 p-4 rounded-lg overflow-x-auto border border-slate-700 shadow-inner;
+  @apply font-mono text-sm bg-white text-slate-800 p-4 rounded-lg overflow-x-auto border border-slate-200 shadow-inner;
+}
+
+/* Custom Quill Styling */
+.quill-wrapper .ql-toolbar.ql-snow {
+  @apply border-none bg-slate-50/80 backdrop-blur-sm px-4 py-3 border-b border-slate-100 flex flex-wrap gap-1;
+}
+
+.quill-wrapper .ql-container.ql-snow {
+  @apply border-none text-base min-h-[150px];
+}
+
+.quill-wrapper .ql-editor {
+  @apply p-6 transition-all focus:bg-slate-50/30;
+}
+
+.quill-wrapper .ql-editor.ql-blank::before {
+  @apply left-6 text-slate-400 not-italic;
+}
+
+.quill-wrapper .ql-snow .ql-stroke {
+  @apply stroke-slate-500;
+}
+
+.quill-wrapper .ql-snow .ql-fill {
+  @apply fill-slate-500;
+}
+
+.quill-wrapper .ql-snow.ql-toolbar button:hover .ql-stroke,
+.quill-wrapper .ql-snow.ql-toolbar button.ql-active .ql-stroke {
+  @apply stroke-brand-primary;
+}
+
+.quill-wrapper .ql-snow.ql-toolbar button:hover .ql-fill,
+.quill-wrapper .ql-snow.ql-toolbar button.ql-active .ql-fill {
+  @apply fill-brand-primary;
+}
+
+.quill-wrapper .ql-snow .ql-picker {
+  @apply text-slate-600 font-medium text-xs;
+}
+
+.quill-wrapper .ql-snow .ql-picker-label {
+  @apply border border-transparent hover:bg-white hover:border-slate-200 rounded transition-all px-2;
 }
 
 .presentation-rich-content b, 

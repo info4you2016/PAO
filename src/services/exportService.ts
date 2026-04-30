@@ -17,7 +17,7 @@ interface PresentationData {
   title: string;
   description?: string;
   course?: string;
-  ownerId: string;
+  owner_id: string;
 }
 
 /**

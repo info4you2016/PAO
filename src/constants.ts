@@ -1,3 +1,72 @@
+export const PRESENTATION_THEMES = [
+  {
+    id: 'default',
+    name: 'Standard Blue',
+    primary: 'bg-[#3b82f6]',
+    secondary: 'bg-[#60a5fa]',
+    accent: 'text-[#3b82f6]',
+    bg: 'bg-slate-50',
+    slideBg: 'bg-white',
+    text: 'text-slate-900',
+    description: 'A clean, professional blue theme.'
+  },
+  {
+    id: 'emerald',
+    name: 'Forest Emerald',
+    primary: 'bg-[#10b981]',
+    secondary: 'bg-[#34d399]',
+    accent: 'text-[#10b981]',
+    bg: 'bg-emerald-50',
+    slideBg: 'bg-white',
+    text: 'text-slate-900',
+    description: 'Refreshing green tones for natural presentations.'
+  },
+  {
+    id: 'midnight',
+    name: 'Midnight Dark',
+    primary: 'bg-[#1e293b]',
+    secondary: 'bg-[#334155]',
+    accent: 'text-white',
+    bg: 'bg-[#0f172a]',
+    slideBg: 'bg-[#1e293b]',
+    text: 'text-slate-100',
+    description: 'High contrast dark theme for low light environments.'
+  },
+  {
+    id: 'sunset',
+    name: 'Summer Sunset',
+    primary: 'bg-[#f43f5e]',
+    secondary: 'bg-[#fb7185]',
+    accent: 'text-[#f43f5e]',
+    bg: 'bg-rose-50',
+    slideBg: 'bg-white',
+    text: 'text-slate-900',
+    description: 'Warm and energetic red/rose tones.'
+  },
+  {
+    id: 'lavender',
+    name: 'Royal Lavender',
+    primary: 'bg-[#8b5cf6]',
+    secondary: 'bg-[#a78bfa]',
+    accent: 'text-[#8b5cf6]',
+    bg: 'bg-violet-50',
+    slideBg: 'bg-white',
+    text: 'text-slate-900',
+    description: 'Sophisticated purple shades for creativity.'
+  },
+  {
+    id: 'brutal',
+    name: 'Brutalist Mono',
+    primary: 'bg-black',
+    secondary: 'bg-zinc-800',
+    accent: 'text-black',
+    bg: 'bg-zinc-100',
+    slideBg: 'bg-white',
+    text: 'text-black',
+    description: 'High contrast black and white minimal look.'
+  }
+];
+
 export const INITIAL_SLIDES = [
   {
     order: 0,
@@ -8,11 +77,11 @@ export const INITIAL_SLIDES = [
         <p class="text-2xl font-light italic">Les boucles : for, while, do...while</p>
         <div class="flex flex-col gap-3 mt-8">
           <div class="flex items-center gap-3 text-slate-500">
-            <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
             <span>Durée : 5 heures</span>
           </div>
           <div class="flex items-center gap-3 text-slate-500">
-            <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+            <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0 -4 -4H8a4 4 0 0 0 -4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
             <span>Formateur : [Votre nom]</span>
           </div>
         </div>

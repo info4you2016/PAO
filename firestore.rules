@@ -1,0 +1,57 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /{document=**} {
+      allow read, write: if false;
+    }
+    
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    
+    function isValidId(id) {
+      return id is string && id.size() > 0 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isOwner(data) {
+      return isSignedIn() && data.ownerId == request.auth.uid;
+    }
+
+    match /themes/{themeId} {
+      function isValidTheme(data) {
+        return data.keys().hasAll(['name', 'primary', 'secondary', 'accent', 'bg', 'slideBg', 'text', 'ownerId', 'createdAt']) &&
+               data.keys().size() == 9 &&
+               data.name is string && data.name.size() >= 1 && data.name.size() <= 100 &&
+               data.primary is string && data.primary.size() <= 100 &&
+               data.secondary is string && data.secondary.size() <= 100 &&
+               data.accent is string && data.accent.size() <= 100 &&
+               data.bg is string && data.bg.size() <= 100 &&
+               data.slideBg is string && data.slideBg.size() <= 100 &&
+               data.text is string && data.text.size() <= 100 &&
+               data.ownerId == request.auth.uid &&
+               data.createdAt == request.time;
+      }
+
+      allow get: if isSignedIn();
+      allow list: if isSignedIn() && resource.data.ownerId == request.auth.uid;
+      
+      allow create: if isSignedIn() && isValidId(themeId) && isValidTheme(incoming());
+      
+      allow update: if isOwner(existing()) && 
+                    isValidTheme(incoming()) && 
+                    incoming().createdAt == existing().createdAt &&
+                    incoming().ownerId == existing().ownerId &&
+                    incoming().diff(existing()).affectedKeys().hasOnly(['name', 'primary', 'secondary', 'accent', 'bg', 'slideBg', 'text']);
+                    
+      allow delete: if isOwner(existing());
+    }
+  }
+}

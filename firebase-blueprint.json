@@ -1,0 +1,28 @@
+{
+  "entities": {
+    "Theme": {
+      "title": "Theme",
+      "description": "A custom presentation theme.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "primary": { "type": "string" },
+        "secondary": { "type": "string" },
+        "accent": { "type": "string" },
+        "bg": { "type": "string" },
+        "slideBg": { "type": "string" },
+        "text": { "type": "string" },
+        "description": { "type": "string" },
+        "ownerId": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["name", "primary", "secondary", "accent", "bg", "slideBg", "text", "ownerId"]
+    }
+  },
+  "firestore": {
+    "themes": {
+      "schema": "Theme",
+      "description": "Collection of custom presentation themes."
+    }
+  }
+}

@@ -1,6 +1,12 @@
 // Contenu de /src/services/exportService.ts amélioré
 import PptxGenJS from 'pptxgenjs';
 
+interface QuizQuestion {
+  question: string;
+  options: string[];
+  correctAnswer: number;
+}
+
 interface SlideData {
   id?: string;
   order: number;
@@ -10,6 +16,9 @@ interface SlideData {
   bgColor?: string;
   isPlayground?: boolean;
   initialCode?: string;
+  isQuiz?: boolean;
+  quizQuestions?: QuizQuestion[];
+  isQA?: boolean;
 }
 
 interface PresentationData {
@@ -43,6 +52,11 @@ const parseHtmlToPptxText = (html: string) => {
         if (tag === 'em' || tag === 'i') options.italic = true;
         if (tag === 'u') options.underline = true;
         if (tag === 's' || tag === 'strike') options.strike = true;
+        if (tag === 'code' || tag === 'pre') {
+          options.fontFace = 'Courier New';
+          options.color = '334155'; // slate-700
+          if (tag === 'code') options.bold = true;
+        }
         if (tag === 'h1') { options.fontSize = 24; options.bold = true; }
         if (tag === 'h2') { options.fontSize = 20; options.bold = true; }
         if (tag === 'h3') { options.fontSize = 18; options.bold = true; }
@@ -130,7 +144,56 @@ export const exportPresentationToPPTX = (presentation: PresentationData, slides:
       });
 
       // Content handling
-      if (typeof slide.content === 'string') {
+      if (slide.isQA) {
+        pptxSlide.addText("Session de Questions & Réponses Interactive", {
+          x: 1,
+          y: 3.5,
+          w: 11,
+          h: 1,
+          align: 'center',
+          valign: 'middle',
+          fontSize: 28,
+          bold: true,
+          color: '3b82f6',
+          fill: { color: 'EFF6FF' },
+          shape: pptx.ShapeType.rect
+        });
+      } else if (slide.isQuiz && slide.quizQuestions) {
+        pptxSlide.addText("Quiz Interactif", {
+          x: 0.5,
+          y: 1.5,
+          w: 3,
+          fontSize: 14,
+          bold: true,
+          color: '3b82f6'
+        });
+        
+        let currentY = 2.0;
+        slide.quizQuestions.slice(0, 5).forEach((q: any, i: number) => {
+          if (currentY > 6.5) return;
+          pptxSlide.addText(`${i + 1}. ${q.question}`, {
+            x: 0.5,
+            y: currentY,
+            w: 12,
+            fontSize: 12,
+            bold: true,
+            color: '0F172A'
+          });
+          currentY += 0.4;
+          q.options.slice(0, 4).forEach((opt: string, oi: number) => {
+            if (currentY > 6.8) return;
+             pptxSlide.addText(`  • ${opt}`, {
+                x: 0.7,
+                y: currentY,
+                w: 11,
+                fontSize: 10,
+                color: '475569'
+              });
+              currentY += 0.3;
+          });
+          currentY += 0.2;
+        });
+      } else if (typeof slide.content === 'string') {
         const styledTextObjects = parseHtmlToPptxText(slide.content);
         
         if (styledTextObjects.length > 0) {
@@ -161,6 +224,36 @@ export const exportPresentationToPPTX = (presentation: PresentationData, slides:
           w: slide.image ? '50%' : '90%',
           fontSize: 18,
           color: '334155'
+        });
+      }
+
+      if (slide.isPlayground && slide.initialCode) {
+        // Background for code block header
+        pptxSlide.addText("Code Interactif", {
+          x: 0.5,
+          y: 4.5,
+          w: 2,
+          h: 0.3,
+          fontSize: 10,
+          bold: true,
+          color: 'FFFFFF',
+          fill: { color: '3b82f6' },
+          align: 'center',
+          valign: 'middle'
+        });
+
+        // Code content block
+        pptxSlide.addText(slide.initialCode, {
+          x: 0.5,
+          y: 4.8,
+          w: slide.image ? 6.5 : 12,
+          h: 2,
+          fontSize: 10,
+          fontFace: 'Courier New',
+          color: 'F1F5F9', // slate-100
+          fill: { color: '1E293B' }, // slate-800
+          valign: 'top',
+          inset: 0.15
         });
       }
 

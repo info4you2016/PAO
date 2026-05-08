@@ -87,53 +87,53 @@ export const CodePlayground: React.FC<CodePlaygroundProps> = ({
   };
 
   return (
-    <div className="flex flex-col h-full max-h-[600px] border border-slate-200 rounded-2xl bg-white shadow-xl overflow-hidden">
+    <div className="flex flex-col h-full min-h-[450px] max-h-[75vh] md:max-h-[600px] border border-slate-200 rounded-2xl bg-white shadow-xl overflow-hidden">
       {/* Header */}
-      <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50/50">
+      <div className="flex items-center justify-between px-4 sm:px-6 py-3 sm:py-4 border-b border-slate-100 bg-slate-50/50 flex-shrink-0">
         <div className="flex items-center gap-3">
-          <div className="p-2 bg-brand-primary/10 rounded-lg">
+          <div className="p-2 bg-brand-primary/10 rounded-lg hidden sm:block">
             <Play className="w-5 h-5 text-brand-primary" />
           </div>
           <div>
-            <h3 className="font-bold text-slate-900">{title}</h3>
-            <p className="text-xs text-slate-500">{description}</p>
+            <h3 className="font-bold text-slate-900 text-sm sm:text-base leading-tight">{title}</h3>
+            <p className="text-[10px] sm:text-xs text-slate-500 line-clamp-1">{description}</p>
           </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5 sm:gap-2">
           <button
             onClick={() => setTheme(theme === 'vs-light' ? 'vs-dark' : 'vs-light')}
-            className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-all"
+            className="p-1.5 sm:p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-all"
             title={theme === 'vs-light' ? "Passer au thème sombre" : "Passer au thème clair"}
           >
-            {theme === 'vs-light' ? <Moon className="w-5 h-5" /> : <Sun className="w-5 h-5" />}
+            {theme === 'vs-light' ? <Moon className="w-4 h-4 sm:w-5 sm:h-5" /> : <Sun className="w-4 h-4 sm:w-5 sm:h-5" />}
           </button>
           <button
             onClick={resetCode}
-            className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-all"
+            className="p-1.5 sm:p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-all"
             title="Réinitialiser"
           >
-            <RotateCcw className="w-5 h-5" />
+            <RotateCcw className="w-4 h-4 sm:w-5 sm:h-5" />
           </button>
           <button
             onClick={runCode}
             disabled={isRunning}
             className={cn(
-              "flex items-center gap-2 px-4 py-2 bg-slate-900 text-white rounded-lg font-bold transition-all shadow-md active:scale-95",
+              "flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-1.5 sm:py-2 bg-slate-900 text-white rounded-lg font-bold text-xs sm:text-sm transition-all shadow-md active:scale-95",
               isRunning ? "opacity-50 cursor-not-allowed" : "hover:bg-slate-800"
             )}
           >
             {isRunning ? (
-              <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+              <div className="w-3 h-3 sm:w-4 sm:h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
             ) : (
-              <Play className="w-4 h-4 fill-current" />
+              <Play className="w-3 h-3 sm:w-4 sm:h-4 fill-current" />
             )}
-            <span>Exécuter</span>
+            <span className="hidden xs:inline">Exécuter</span>
           </button>
         </div>
       </div>
 
       {/* Editor & Output Container */}
-      <div className="flex flex-col md:flex-row flex-1 overflow-hidden min-h-[400px]">
+      <div className="flex flex-col md:flex-row flex-1 overflow-hidden">
         {/* Editor Area */}
         <div className="flex-1 border-b md:border-b-0 md:border-r border-slate-100 h-1/2 md:h-auto overflow-hidden">
           <Editor

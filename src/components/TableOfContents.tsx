@@ -3,11 +3,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { X, CheckCircle2, Circle } from 'lucide-react';
 import { cn } from '../lib/utils';
 
-interface SlideData {
-  id?: string;
-  order: number;
-  title: string;
-}
+import { Theme, SlideData } from '../types';
 
 interface TableOfContentsProps {
   isOpen: boolean;
@@ -100,6 +96,10 @@ export const TableOfContents: React.FC<TableOfContentsProps> = ({
                       )}>
                         {slide.title}
                       </h4>
+                      <div className="flex gap-2 mt-1">
+                        {slide.isQuiz && <span className="text-[8px] font-black uppercase tracking-tighter text-blue-400 px-1.5 py-0.5 rounded-sm bg-blue-400/10 border border-blue-400/20">Quiz</span>}
+                        {slide.isPlayground && <span className="text-[8px] font-black uppercase tracking-tighter text-emerald-400 px-1.5 py-0.5 rounded-sm bg-emerald-400/10 border border-emerald-400/20">Code</span>}
+                      </div>
                     </div>
                     
                     {isActive && (

@@ -78,30 +78,80 @@
 
 .presentation-rich-content b, 
 .presentation-rich-content strong {
-  @apply font-bold text-slate-900;
+  @apply font-bold;
 }
 
 .presentation-rich-content h1,
 .presentation-rich-content h2,
 .presentation-rich-content h3 {
-  @apply font-display font-bold text-slate-900 mt-6 mb-3;
+  @apply font-display font-bold mt-2 mb-1;
+}
+
+.presentation-rich-content h1 { @apply text-2xl sm:text-4xl md:text-5xl lg:text-6xl; }
+.presentation-rich-content h2 { @apply text-xl sm:text-3xl md:text-4xl; }
+.presentation-rich-content h3 { @apply text-lg sm:text-2xl md:text-3xl; }
+
+.presentation-rich-content img {
+  @apply rounded-xl sm:rounded-2xl shadow-xl my-2 sm:my-5 max-w-full h-auto mx-auto border sm:border-2 border-white/50;
+}
+
+.presentation-rich-content pre {
+  @apply my-2 sm:my-5;
+}
+
+.presentation-rich-content {
+  @apply break-words text-sm sm:text-base md:text-xl leading-relaxed;
+  overflow-wrap: anywhere;
+}
+
+.presentation-rich-content p {
+  @apply mb-2 sm:mb-4 opacity-90;
 }
 
 .presentation-rich-content ul {
-  @apply space-y-3 list-none;
+  @apply space-y-1.5 sm:space-y-3 list-none my-3 sm:my-6;
 }
 
 .presentation-rich-content li {
-  @apply flex items-start gap-4 before:content-[''] before:w-1.5 before:h-1.5 before:rounded-full before:bg-brand-primary before:mt-2.5 before:flex-shrink-0;
+  @apply flex items-start gap-2 sm:gap-4 before:content-[''] before:w-1.5 sm:before:w-2 before:h-1.5 sm:before:h-2 before:rounded-full before:bg-brand-accent/40 before:mt-1.5 sm:before:mt-3 before:flex-shrink-0;
 }
 
-/* Force dark text for AI generated content except inside specific dark blocks */
-.presentation-rich-content :not(.bg-slate-900 *) {
-  color: inherit;
+.presentation-rich-content table {
+  @apply w-full border-collapse my-8 overflow-x-auto block sm:table rounded-3xl border border-white/20 shadow-xl bg-white/10 backdrop-blur-md;
 }
 
-.presentation-rich-content .text-white:not(.bg-slate-900 *) {
-  @apply !text-slate-900; /* Override AI white text on light backgrounds */
+.presentation-rich-content th {
+  @apply bg-slate-900/5 p-4 text-left font-bold border-b border-white/20 text-lg;
+}
+
+.presentation-rich-content td {
+  @apply p-4 border-b border-white/10 text-lg;
+}
+
+.presentation-rich-content blockquote {
+  @apply border-l-8 border-brand-accent/30 pl-8 italic my-10 bg-white/10 backdrop-blur-sm py-8 rounded-r-3xl;
+}
+
+/* Force specific colors only if not explicitly set by theme */
+.presentation-rich-content:not([class*="text-"]) {
+  @apply text-slate-800;
+}
+
+/* Scrollbar styling for slides */
+.presentation-slide-scrollbar::-webkit-scrollbar {
+  width: 4px;
+}
+
+.presentation-slide-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.presentation-slide-scrollbar::-webkit-scrollbar-thumb {
+  @apply bg-slate-200 rounded-full;
+}
+
+.presentation-slide-scrollbar::-webkit-scrollbar-thumb:hover {
+  @apply bg-slate-300;
 }
 
 /* Quill Editor Styles */
